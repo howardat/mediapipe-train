@@ -1,0 +1,8 @@
+node_modules/
+dist/
+public/mediapipe/
+*.tsbuildinfo
+__pycache__/
+.DS_Store
+# The robot workspace. Copied to the robot whole; 74 MB of ONNX lives in it.
+x2_yolo_plus_ws/

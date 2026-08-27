@@ -1,0 +1,375 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>X2 dashboard — prototype</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root {
+    color-scheme: dark;
+    --bg:      #0c0f14;
+    --panel:   #12161d;
+    --line:    #262c36;
+    --text:    #e6edf3;
+    --muted:   #8b949e;
+    --dim:     #6e7681;
+    --accent:  #3fb950;
+    --amber:   #d29922;
+    --track:   #1c222b;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 14px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ---------------------------------------------------------------- header */
+  header {
+    display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+    padding: 9px 16px; border-bottom: 1px solid var(--line);
+    background: var(--bg); position: sticky; top: 0; z-index: 3;
+  }
+  .brand { font-size: 14px; font-weight: 700; letter-spacing: .04em; }
+  .meta { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+  .pills { display: flex; gap: 6px; margin-left: auto; flex-wrap: wrap; }
+  .pill {
+    font-size: 11px; padding: 2px 9px; border-radius: 999px;
+    border: 1px solid var(--line); color: var(--dim); white-space: nowrap;
+  }
+  .pill.live  { color: var(--accent); border-color: #234b2c; background: #10261a; }
+  .pill.stale { color: var(--amber);  border-color: #4a3711; background: #241c08; }
+
+  /* ------------------------------------------------------------------ grid */
+  main {
+    display: grid; gap: 14px; padding: 14px;
+    grid-template-columns: minmax(0, 1.35fr) minmax(320px, 1fr);
+    align-items: start;
+  }
+  @media (max-width: 900px) {
+    main { grid-template-columns: 1fr; }
+    .cams { order: 2; }
+    .side { order: 1; }
+  }
+
+  .panel {
+    border: 1px solid var(--line); border-radius: 12px;
+    background: var(--panel); overflow: hidden;
+  }
+  .panel h2 {
+    font-size: 11px; margin: 0; padding: 10px 14px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: .08em; color: var(--muted);
+    display: flex; align-items: center; gap: 8px;
+    border-bottom: 1px solid var(--line);
+  }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--dim); flex: none; }
+  .dot.live  { background: var(--accent); }
+  .dot.stale { background: var(--amber); }
+  .count { margin-left: auto; color: var(--dim); font-weight: 400; letter-spacing: 0; }
+
+  /* --------------------------------------------------------------- cameras */
+  .cams { display: grid; gap: 14px; }
+  .cam figure { margin: 0; position: relative; background: #000; }
+  .cam img { width: 100%; display: block; aspect-ratio: 16/10; object-fit: contain; }
+  .camoff {
+    display: none; place-content: center; text-align: center; aspect-ratio: 16/10;
+    color: var(--dim); font-size: 12px; padding: 20px;
+    background: repeating-linear-gradient(45deg, #0e1218 0 10px, #10141b 10px 20px);
+  }
+  .camoff.show { display: grid; }
+  .camoff code { color: var(--muted); }
+
+  /* ----------------------------------------------------------- gesture hero */
+  .side { display: grid; gap: 14px; }
+  .hero { padding: 20px 18px 18px; }
+  .hero .label {
+    font-size: clamp(30px, 5.4vw, 52px); font-weight: 650; line-height: 1.05;
+    letter-spacing: -.02em; margin: 0; word-break: break-word;
+  }
+  .hero .label.idle { color: var(--dim); font-weight: 400; font-size: clamp(22px, 3.4vw, 30px); }
+  .hero .sub {
+    color: var(--muted); font-size: 12.5px; margin-top: 6px; min-height: 1.5em;
+    font-variant-numeric: tabular-nums;
+  }
+  .bars { margin-top: 16px; }
+  .row { display: flex; align-items: center; gap: 9px; margin-bottom: 7px; }
+  .row .name {
+    width: 108px; flex: none; font-size: 13px; overflow: hidden;
+    text-overflow: ellipsis; white-space: nowrap;
+  }
+  .row.top .name { color: var(--text); font-weight: 600; }
+  .bar { flex: 1; height: 7px; background: var(--track); border-radius: 4px; overflow: hidden; }
+  /* display:block: these are spans, and an inline element ignores width —
+     which silently leaves every bar empty. */
+  .fill {
+    display: block; height: 100%; width: 0; background: var(--accent);
+    border-radius: 4px; transition: width .18s ease-out;
+  }
+  .fill.under { background: #3d444d; }
+  .val {
+    width: 40px; flex: none; text-align: right; font-size: 12px;
+    color: var(--muted); font-variant-numeric: tabular-nums;
+  }
+  .foot { color: var(--dim); font-size: 11px; margin-top: 14px;
+          font-variant-numeric: tabular-nums; }
+
+  /* ------------------------------------------------------------ detections */
+  .dets { padding: 6px 0 8px; }
+  .dets table { width: 100%; border-collapse: collapse; }
+  .dets td { padding: 7px 14px; font-size: 13.5px; vertical-align: middle; }
+  .dets tr + tr td { border-top: 1px solid #1b2029; }
+  .dets .lab { font-weight: 500; }
+  .dets .qty { color: var(--dim); font-size: 12px; margin-left: 6px; }
+  /* .bar sizes itself with flex:1, which does nothing inside a <td> — it stays
+     an inline span of zero width and the track vanishes, leaving the fill
+     floating on nothing. Table cells need it laid out explicitly. */
+  .dets .meter { width: 96px; }
+  .dets .meter .bar { display: block; width: 100%; }
+  .dets .sc { width: 44px; text-align: right; color: var(--muted); font-size: 12px;
+              font-variant-numeric: tabular-nums; }
+  .people { padding: 12px 14px 4px; display: flex; align-items: baseline; gap: 10px; }
+  .people .n { font-size: 26px; font-weight: 650; line-height: 1;
+               font-variant-numeric: tabular-nums; }
+  .people .n.zero { color: var(--dim); font-weight: 400; }
+  .people .who { color: var(--muted); font-size: 12.5px; }
+  .empty { padding: 14px; color: var(--dim); font-size: 13px; }
+
+  /* ------------------------------------------------------ prototype control */
+  .proto {
+    position: fixed; bottom: 0; left: 0; right: 0; z-index: 5;
+    display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+    padding: 8px 14px; background: #090c10; border-top: 1px solid var(--line);
+    font-size: 12px; color: var(--dim);
+  }
+  .proto button {
+    font: inherit; padding: 3px 10px; border-radius: 999px; cursor: pointer;
+    background: #161b22; color: var(--muted); border: 1px solid var(--line);
+  }
+  .proto button.on { background: #10261a; color: var(--accent); border-color: #234b2c; }
+  .proto input {
+    font: inherit; padding: 3px 8px; border-radius: 6px; width: 130px;
+    background: #161b22; color: var(--text); border: 1px solid var(--line);
+  }
+  .proto .tag { color: var(--amber); font-weight: 600; letter-spacing: .04em; }
+  main { padding-bottom: 60px; }
+</style>
+</head>
+<body>
+
+<header>
+  <span class="brand">X2</span>
+  <span class="meta" id="meta">—</span>
+  <span class="pills" id="pills"></span>
+</header>
+
+<main>
+  <div class="cams">
+    <section class="panel cam">
+      <h2>
+        <span class="dot" id="dot-cam"></span>Camera
+        <span class="count" id="cam-note">boxes + skeleton</span>
+      </h2>
+      <figure>
+        <img id="cam" alt="annotated camera stream">
+        <div class="camoff" id="off-cam">
+          not serving on <code>:8082</code>
+        </div>
+      </figure>
+    </section>
+  </div>
+
+  <div class="side">
+    <section class="panel">
+      <h2><span class="dot" id="dot-gesture"></span>Gesture</h2>
+      <div class="hero">
+        <p class="label idle" id="g-label">waiting</p>
+        <div class="sub" id="g-sub">&nbsp;</div>
+        <div class="bars" id="g-bars"></div>
+        <div class="foot" id="g-foot"></div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>
+        <span class="dot" id="dot-yolo"></span>Detections
+        <span class="count" id="d-count"></span>
+      </h2>
+      <div class="dets">
+        <div class="people" id="d-people"></div>
+        <table id="d-table"></table>
+      </div>
+    </section>
+  </div>
+</main>
+
+<div class="proto">
+  <span class="tag">PROTOTYPE</span>
+  <span>state:</span>
+  <button data-s="0" class="on">gesture held</button>
+  <button data-s="1">below threshold</button>
+  <button data-s="2">no hand</button>
+  <button data-s="3">gesture node down</button>
+  <span style="margin-left:10px">robot:</span>
+  <input id="host" value="192.168.1.109" spellcheck="false">
+  <span>— the combined stream loads from :8082 on that host</span>
+</div>
+
+<script>
+// ---------------------------------------------------------------- fake data
+// Shaped exactly like the real payloads: keys copied from x2_yolo_stream's
+// /yolo/detections and x2_gesture's /gesture/detections, so porting this into
+// web.py is a move, not a rewrite.
+const CLASSES = ['okay', 'phone', 'untitled', 'korean_love'];
+let STATE = 0;
+const t0 = Date.now();
+
+function fakeState() {
+  const up = Math.floor((Date.now() - t0) / 1000);
+  const wobble = (Math.sin(Date.now() / 700) + 1) / 2;
+
+  let gesture = {
+    health: 'live', seen: true, classes: CLASSES, threshold: 0.75,
+    handedness: 'Right', hands: 1, inference_ms: (17 + wobble * 4).toFixed(1),
+    gesture: 'korean_love', confidence: 0.93,
+    scores: { okay: 0.03, phone: 0.02, untitled: 0.02, korean_love: 0.93 },
+  };
+  if (STATE === 1) {
+    gesture.gesture = null; gesture.confidence = 0;
+    gesture.scores = { okay: 0.28, phone: 0.19, untitled: 0.61, korean_love: 0.09 };
+  } else if (STATE === 2) {
+    gesture.gesture = null; gesture.hands = 0; gesture.confidence = 0;
+    gesture.scores = { okay: 0, phone: 0, untitled: 0, korean_love: 0 };
+  } else if (STATE === 3) {
+    gesture = { health: 'off', seen: false };
+  }
+
+  const yolo = {
+    health: 'live', seen: true, model: 'yolox_nano', provider: 'CPUExecutionProvider',
+    inference_ms: 11.2, count_people: STATE === 2 ? 0 : 1,
+    people: STATE === 2 ? [] : [{ posture: 'standing', score: 0.91, visible_keypoints: 14 }],
+    objects: STATE === 2
+      ? [{ label: 'chair', score: 0.48 }]
+      : [{ label: 'person', score: 0.91 }, { label: 'chair', score: 0.55 },
+         { label: 'laptop', score: 0.44 }, { label: 'tv', score: 0.31 }],
+  };
+
+  return { gesture, yolo, uptime_s: up };
+}
+
+// ------------------------------------------------------------------ render
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"]/g, c =>
+  ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const setDot = (id, h) => { $(id).className = 'dot' + (h === 'live' ? ' live' : h === 'stale' ? ' stale' : ''); };
+
+function renderGesture(g) {
+  setDot('dot-gesture', g.health);
+  setDot('dot-cam', g.health);
+  const label = $('g-label'), sub = $('g-sub');
+
+  if (!g.seen) {
+    label.textContent = 'offline'; label.className = 'label idle';
+    sub.textContent = 'x2_gesture is not publishing';
+    $('g-bars').innerHTML = ''; $('g-foot').textContent = '';
+    return;
+  }
+  if (g.gesture) {
+    label.textContent = g.gesture; label.className = 'label';
+    sub.textContent = `${(g.handedness || '').toLowerCase()} hand · ${(g.confidence || 0).toFixed(2)}`;
+  } else if (g.hands) {
+    label.textContent = 'unrecognised'; label.className = 'label idle';
+    sub.textContent = 'hand visible, nothing over threshold';
+  } else {
+    label.textContent = 'no hand'; label.className = 'label idle';
+    sub.innerHTML = '&nbsp;';
+  }
+
+  const scores = g.scores || {};
+  const best = (g.classes || []).reduce((a, c) =>
+    (scores[c] || 0) > (scores[a] || 0) ? c : a, (g.classes || [])[0]);
+  $('g-bars').innerHTML = (g.classes || []).map(c => {
+    const v = scores[c] || 0;
+    const under = v < g.threshold ? ' under' : '';
+    const top = c === best && v > 0 ? ' top' : '';
+    return `<div class="row${top}"><span class="name">${esc(c)}</span>` +
+           `<span class="bar"><span class="fill${under}" style="width:${(v * 100).toFixed(1)}%"></span></span>` +
+           `<span class="val">${v.toFixed(2)}</span></div>`;
+  }).join('');
+  $('g-foot').textContent = `threshold ${g.threshold} · ${g.inference_ms} ms`;
+}
+
+function renderDetections(y) {
+  setDot('dot-yolo', y.health);
+  const objects = y.objects || [], people = y.people || [];
+
+  if (!y.seen) {
+    $('d-count').textContent = '';
+    $('d-people').innerHTML = '';
+    $('d-table').innerHTML = '<tr><td class="empty">x2_yolo_stream is not publishing</td></tr>';
+    return;
+  }
+
+  $('d-count').textContent = `${y.model || ''} · ${y.inference_ms} ms`;
+  $('d-people').innerHTML =
+    `<span class="n${people.length ? '' : ' zero'}">${people.length}</span>` +
+    `<span class="who">${people.length === 1 ? 'person' : 'people'}` +
+    `${people.length ? ' · ' + people.map(p => esc(p.posture || 'unknown')).join(', ') : ''}</span>`;
+
+  // Collapse duplicate labels: four chairs is one row saying x4, not four rows.
+  const byLabel = new Map();
+  for (const o of objects) {
+    const cur = byLabel.get(o.label);
+    if (cur) { cur.n++; cur.score = Math.max(cur.score, o.score); }
+    else byLabel.set(o.label, { n: 1, score: o.score });
+  }
+  const rows = [...byLabel.entries()].sort((a, b) => b[1].score - a[1].score);
+
+  $('d-table').innerHTML = rows.length ? rows.map(([label, o]) =>
+    `<tr><td class="lab">${esc(label)}${o.n > 1 ? `<span class="qty">×${o.n}</span>` : ''}</td>` +
+    `<td class="meter"><span class="bar"><span class="fill" style="width:${(o.score * 100).toFixed(0)}%"></span></span></td>` +
+    `<td class="sc">${o.score.toFixed(2)}</td></tr>`).join('')
+    : '<tr><td class="empty">nothing detected</td></tr>';
+}
+
+function tick() {
+  const d = fakeState();
+  // Says which layers the single stream currently carries, so a dead node reads
+  // as "boxes only" rather than the skeleton silently going missing.
+  const layers = [d.yolo.health === 'live' && 'boxes',
+                  d.gesture.health === 'live' && 'skeleton'].filter(Boolean);
+  $('cam-note').textContent = layers.length ? layers.join(' + ') : 'no overlay';
+  $('meta').textContent = `${d.uptime_s}s up`;
+  $('pills').innerHTML =
+    `<span class="pill ${d.yolo.health}">x2_yolo_stream</span>` +
+    `<span class="pill ${d.gesture.health}">x2_gesture</span>`;
+  renderGesture(d.gesture);
+  renderDetections(d.yolo);
+}
+
+// ------------------------------------------------------------ camera wiring
+// One stream, not two. x2_gesture draws its skeleton onto the frame
+// x2_yolo_stream has already drawn boxes on, so :8082 carries both and :8081 is
+// no longer shown here (it stays up, it just is not what the page renders).
+function wireCams() {
+  const host = $('host').value.trim() || location.hostname;
+  const img = $('cam'), off = $('off-cam');
+  img.style.display = ''; off.classList.remove('show');
+  img.onerror = () => { img.style.display = 'none'; off.classList.add('show'); };
+  img.src = `http://${host}:8082/stream`;
+}
+$('host').addEventListener('change', wireCams);
+
+document.querySelectorAll('.proto button').forEach(b => {
+  b.onclick = () => {
+    document.querySelectorAll('.proto button').forEach(x => x.classList.remove('on'));
+    b.classList.add('on');
+    STATE = +b.dataset.s;
+    tick();
+  };
+});
+
+wireCams(); tick(); setInterval(tick, 400);
+</script>
+</body>
+</html>
